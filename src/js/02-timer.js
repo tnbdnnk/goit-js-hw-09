@@ -1,19 +1,19 @@
-import flatpickr from "flatpickr";
-import "flatpickr/dist/flatpickr.min.css";
-import Notiflix from "notiflix";
+import flatpickr from 'flatpickr';
+import 'flatpickr/dist/flatpickr.min.css';
+import { Notify } from 'notiflix/build/notiflix-notify-aio';
 
 const calendar = document.getElementById(`datetime-picker`);
-const startBtn = document.querySelector(`[data-start]`);
+const startBtn = document.querySelector('button[data-start]');
 const timer = document.querySelector(`.timer`);
 const fields = document.querySelectorAll(`.field`);
-const days = document.querySelector(`[data-days]`);
-const hours = document.querySelector('[data-hours]');
-const minutes = document.querySelector('[data-minutes]');
-const seconds = document.querySelector(`[data-seconds]`);
+const urls = {
+    daysSpan: document.querySelector('span[data-days]'),
+    hoursSpan: document.querySelector('span[data-hours]'),
+    minutesSpan: document.querySelector('span[data-minutes]'),
+    secondsSpan: document.querySelector('span[data-seconds]'),
+};
 
-let timerInterval = null;
-
-startBtn.setAttribute(`disabled`, true);
+StartBtnBlock();
 
 timer.style.display = "flex";
 
@@ -25,45 +25,20 @@ fields.forEach(field => {
 })
 
 function convertMs(ms) {
-        const second = 1000;
-        const minute = second * 60;
-        const hour = minute * 60;
-        const day = hour * 24;
-    
-        const days = Math.floor(ms / day);
+    const second = 1000;
+    const minute = second * 60;
+    const hour = minute * 60;
+    const day = hour * 24;
 
-        const hours = Math.floor((ms % day) / hour);
+    const days = Math.floor(ms / day);
+    const hours = Math.floor((ms % day) / hour);
+    const minutes = Math.floor(((ms % day) % hour) / minute);
+    const seconds = Math.floor((((ms % day) % hour) % minute) / second);
 
-        const minutes = Math.floor(((ms % day) % hour) / minute);
-
-        const seconds = Math.floor((((ms % day) % hour) % minute) / second);
-    
-        return { days, hours, minutes, seconds };
-    }
-
-function addLeadingZero(value){
-    return String(value).padStart(2, '0'); 
+    return { days, hours, minutes, seconds };
 }
 
-function onScreenLoad(object){ 
-    hours.textContent = addLeadingZero(object.hours);
-    minutes.textContent = addLeadingZero(object.minutes);
-    seconds.textContent = addLeadingZero(object.seconds);
-}
-
-function counter(chosenDate){   
-    const currentDate = new Date();
-    const countdownTime = convertMs(chosenDate.getTime() - currentDate.getTime());
-    // console.log('Countdown Time:', countdownTime);
-    onScreenLoad(countdownTime);
-    if ((countdownTime.days === 0 && countdownTime.hours === 0 && countdownTime.minutes === 0 && countdownTime.seconds === 0)){
-        clearInterval(timerInterval);
-        days.textContent = padStart(0);
-        hours.textContent = padStart(0);
-        minutes.textContent = padStart(0);
-        seconds.textContent = padStart(0);
-    }
-}
+let selectedDate = 0;
 
 const options = {
     enableTime: true,
@@ -72,25 +47,54 @@ const options = {
     minuteIncrement: 1,
 
     onClose(selectedDates) {
-        const currentDate = new Date;
-        const chosenDate = selectedDates[0];
+        if (selectedDates[0] <= options.defaultDate) {
+            Notify.failure('Please choose a date in the future!');
+            StartBtnBlock();
+            return;
+        }
 
-        if(chosenDate < currentDate){
-            Notiflix.Notify.failure('Please choose a date in the future');
-        }else{
-            startBtn.removeAttribute(`disabled`, true);
-            // console.log(chosenDate.getTime());
-            // console.log(currentDate.getTime());
-            startBtn.addEventListener('click', startCounter);
-            
-            function startCounter(){                    
-                clearInterval(timerInterval);
-                timerInterval = setInterval(()=> counter(chosenDate), 1000);
-                startBtn.setAttribute(`disabled`, true);
-            }
-        }        
+        startBtn.removeAttribute('disabled');
+        selectedDate = selectedDates[0].getTime();
     },
 };
 
-flatpickr(calendar, options)
+startBtn.addEventListener('click', onCounterStart);
 
+let isIntervalActive = false;
+
+function addLeadingZero(value) {
+    return value.padStart(2, 0);
+}
+
+function onCounterStart() {
+    if (isIntervalActive) {
+        Notify.warning(
+            'The countdown has already started! Please, reload the page.'
+        );
+        return;
+    }
+
+    Notify.success('The countdown has begun.');
+
+    const intervalId = setInterval(() => {
+        let preventTimerResult = selectedDate - new Date().getTime();
+        let convertedTimerResult = convertMs(preventTimerResult);
+
+        urls.daysSpan.textContent = addLeadingZero(String(convertedTimerResult.days));
+        urls.hoursSpan.textContent = addLeadingZero(String(convertedTimerResult.hours));
+        urls.minutesSpan.textContent = addLeadingZero(String(convertedTimerResult.minutes));
+        urls.secondsSpan.textContent = addLeadingZero(String(convertedTimerResult.seconds));
+
+        if (preventTimerResult < 1000) {
+            clearInterval(intervalId);
+        }
+    }, 1000);
+
+    isIntervalActive = true;
+}
+
+function StartBtnBlock() {
+    startBtn.setAttribute('disabled', 'true');  
+}
+
+flatpickr(calendar, options);
